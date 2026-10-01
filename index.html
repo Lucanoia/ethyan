@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Éthyan RPG</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9dcc0;--paper:#f4ead2;--ink:#2b1d10;--accent:#7a2e1d;--gold:#a67c2e;--line:#c9b78f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg) radial-gradient(circle at 50% 0,#f6edd6,var(--bg) 70%);color:var(--ink);font:18px/1.5 'Crimson Text',Georgia,serif}
+h1,h2,h3,nav button{font-family:'Cinzel',Georgia,serif}
+header{text-align:center;padding:28px 12px 8px}
+header h1{margin:0;font-size:2.4rem;letter-spacing:.2em;color:var(--accent)}
+header p{margin:4px 0 0;font-style:italic}
+nav{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:12px;border-bottom:2px solid var(--gold)}
+nav button{background:none;border:1px solid var(--gold);color:var(--ink);padding:8px 18px;cursor:pointer;font-size:.9rem}
+nav button.on,nav button:hover{background:var(--accent);color:#fff}
+main{max-width:980px;margin:0 auto;padding:20px 14px 60px}
+.card{background:var(--paper);border:1px solid var(--line);box-shadow:0 2px 8px #0002;padding:16px 18px;margin-bottom:16px}
+h2{margin:0 0 10px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px;font-size:1.2rem}
+input,select,textarea{font:inherit;background:#fffaf0;border:1px solid var(--line);padding:6px 8px;color:var(--ink);width:100%}
+textarea{min-height:90px;resize:vertical}
+label{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:#6b5330;display:block}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.asp{display:flex;align-items:center;gap:8px;border-bottom:1px dotted var(--line);padding:4px 0}
+.asp b{flex:1}.asp small{color:#6b5330}
+.asp button,.btn{background:var(--accent);color:#fff;border:0;padding:4px 10px;cursor:pointer;font-family:'Cinzel',serif}
+.asp button{width:28px;padding:2px}
+.btn.alt{background:none;color:var(--accent);border:1px solid var(--accent)}
+.num{min-width:2ch;text-align:center;font-weight:600}
+.stat{text-align:center}.stat .v{font-size:1.8rem;font-family:'Cinzel';color:var(--accent)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.msg{font-style:italic;color:#6b5330}.err{color:#a00}
+details{border-bottom:1px solid var(--line);padding:6px 0}summary{cursor:pointer;font-weight:600}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header><h1>ÉTHYAN</h1><p>Guia do Caçador</p></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+
+<script>
+/* ===== DADOS (edite aqui para crescer o site) ===== */
+const ASPECTS = [
+  ['bruto','Bruto','Força física e impacto'],['vigoroso','Vigoroso','Vitalidade e fôlego'],
+  ['resistente','Resistente','Suportar dor, fome e frio'],['agil','Ágil','Destreza e reflexos'],
+  ['perspicaz','Perspicaz','Percepção e raciocínio rápido'],['culto','Culto','Conhecimento e erudição'],
+  ['carismatico','Carismático','Presença e empatia'],['determinado','Determinado','Vontade e liderança'],
+  ['mistico','Místico','Afinidade com a mana'],['religioso','Religioso','Fé e intervenção divina']
+];
+const BUDGET = 20, MAXA = 5; // pontos para distribuir acima da base 1
+// Valores iniciais conforme o Guia (ajuste conforme revisar o livro)
+const ETHYNIAS = {
+  'Anão':{pv:35,pe:8,fol:14,vel:6,b:{bruto:2,vigoroso:3,perspicaz:2,determinado:1,culto:1}},
+  'Calcífe':{pv:25,pe:20,fol:12,vel:6,b:{vigoroso:3,carismatico:2,determinado:1,mistico:2,religioso:2,culto:1}},
+  'Kemono':{pv:32,pe:6,fol:16,vel:12,b:{bruto:1,vigoroso:2,agil:2,perspicaz:2,mistico:-1}},
+  'Humano':{pv:10,pe:6,fol:10,vel:9,b:{}},
+  'Outra (manual)':{pv:10,pe:6,fol:10,vel:9,b:{}}
+};
+const ARQ = ['Ampliador','Conjurador','Controlador','Auxiliador'];
+const RULES = [
+ ['Rolagem','Role 1d20 + valor do Aspecto escolhido + Qualidade apropriada. O Mestre define a dificuldade; igual ou maior é sucesso. O jogador escolhe o Aspecto pela abordagem. 20 natural = sucesso crítico, 1 natural = falha crítica. Vantagem: 2d20, fica o maior. Desvantagem: 2d20, fica o menor.'],
+ ['Aspectos e Qualidades','Dez Aspectos: Bruto, Vigoroso, Resistente, Ágil, Perspicaz, Culto, Carismático, Determinado, Místico e Religioso. Cada um começa com 1 ponto. A cada 4 pontos em um Aspecto, desbloqueia-se uma Qualidade ligada a ele.'],
+ ['Sem classes','Não há classes. O que molda seu estilo é o Arquétipo de Magia: Ampliador, Conjurador, Controlador ou Auxiliador. A cada nível, pegue um nível de qualquer caminho, mas não é possível maximizar todos.'],
+ ['Combate','Por turno: 1 Ação Primária, 1 Ação Menor e 1 Reação por rodada (fora do seu turno).'],
+ ['Exploração','Hexcrawl de mundo aberto. A exploração usa Investigar, Interagir, Avançar e Manutenção, com Fôlego e Provisões como recursos.'],
+ ['Fôlego','Barra secundária de resistência: corrida, nado e combate prolongado gastam Fôlego. Em 25% há -1 nos testes físicos, em 10% desvantagem, em 0 exaustão.'],
+ ['Economia','Serpe (cobre) < Wyve (prata, 100 Serpes) < Draco (ouro, 100 Wyves).']
+];
+const LORE = [
+ ['O mundo','Éthyan é um RPG de fantasia sombria onde magia e tecnologia se entrelaçam, repleto de ruínas ancestrais e segredos perigosos. Cada temporada (ano) gira em torno de uma nação.'],
+ ['Elementos e Patronos','A magia é elemental e molda todo o mundo. Cada elemento tem um Patrono e 4 Faces, e representa uma emoção, um conceito e o seu oposto: Aerium (liberdade, Cyrela), Arboria (altruísmo, Azerut), Calentum (vontade, Triga), Conducto (conhecimento, Kirin), Cryostasis (Frélluz), Stilla (emoções, Nyadalis), Creatum (imaginação, Azralon) e Spectrum (o mal da criação, Alira).'],
+ ['Ethynias (raças)','Anões, Calcífes, Feéricos, Gremlins, Golens, Hellyngs, Hollyngs, Humanos, Delians, Grukonianos, Lyandrianos, Asuras, Kemonos, Ostos, Seedhlins, Corrompidos e outras. A Ethynia define PV, Essência, Fôlego e bônus iniciais.'],
+ ['Os Arquétipos','Ampliadores canalizam a magia no corpo. Conjuradores moldam a mana ao redor. Controladores vinculam criaturas e entidades. Auxiliadores sustentam e fortalecem aliados.']
+];
+
+/* ===== ESTADO / API ===== */
+const $ = s => document.querySelector(s), app = $('#app');
+let sheet = null, sheetId = null, saveT = null;
+const blank = () => ({name:'',player:'',ethynia:'Humano',arq:'Ampliador',asp:Object.fromEntries(ASPECTS.map(a=>[a[0],1])),
+  bonusManual:{},pvA:'',peA:'',folA:'',hist:'',skills:'',items:'',serpes:0,notes:''});
+
+async function api(path, opt){const r=await fetch(path,opt);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Erro');return j}
+
+function setStatus(t,err){const e=$('#status');if(e){e.textContent=t;e.className=err?'err':'msg'}}
+function queueSave(){
+  setStatus('Alterado...');clearTimeout(saveT);
+  saveT=setTimeout(async()=>{
+    try{
+      if(!sheetId){const r=await api('/api/sheet',{method:'POST',body:JSON.stringify(sheet)});sheetId=r.id;history.replaceState(null,'','?f='+sheetId+'#ficha');renderLink()}
+      else await api('/api/sheet?id='+sheetId,{method:'PUT',body:JSON.stringify(sheet)});
+      setStatus('Salvo ✓');
+    }catch(e){setStatus('Erro ao salvar: '+e.message,1)}
+  },800);
+}
+function renderLink(){const e=$('#link');if(e)e.innerHTML=sheetId?`Código: <b>${sheetId}</b> · <a href="?f=${sheetId}#ficha">link da ficha</a> <button class="btn alt" onclick="navigator.clipboard.writeText(location.origin+'/?f=${sheetId}#ficha')">Copiar link</button>`:'A ficha será salva automaticamente ao editar.'}
+
+/* ===== CÁLCULOS ===== */
+const racial = (s,k) => (ETHYNIAS[s.ethynia].b[k]||0);
+const total = (s,k) => s.asp[k] + racial(s,k);
+const spent = s => Object.values(s.asp).reduce((a,v)=>a+v-1,0);
+
+/* ===== TELAS ===== */
+function viewSheet(){
+  const s=sheet, E=ETHYNIAS[s.ethynia], left=BUDGET-spent(s);
+  const pv=E.pv+total(s,'vigoroso');
+  app.innerHTML=`
+  <div class="bar"><span id="status" class="msg"></span><span id="link" class="msg"></span>
+    <button class="btn alt" onclick="newSheet()">Nova ficha</button><button class="btn alt" onclick="openCode()">Abrir por código</button></div>
+  <div class="card"><h2>Personagem</h2><div class="grid">
+    <div><label>Nome</label><input data-k="name" value="${esc(s.name)}"></div>
+    <div><label>Jogador</label><input data-k="player" value="${esc(s.player)}"></div>
+    <div><label>Ethynia</label><select data-k="ethynia">${Object.keys(ETHYNIAS).map(r=>`<option ${r==s.ethynia?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div><label>Arquétipo de Magia</label><select data-k="arq">${ARQ.map(r=>`<option ${r==s.arq?'selected':''}>${r}</option>`).join('')}</select></div>
+  </div></div>
+  <div class="card"><h2>Aspectos <small style="font-size:.8rem">(pontos restantes: <b style="color:${left<0?'#a00':'inherit'}">${left}</b>, máx. ${MAXA} por Aspecto na criação)</small></h2>
+    ${ASPECTS.map(([k,n,d])=>`<div class="asp"><b>${n} <small>${d}</small></b>
+      <button onclick="adj('${k}',-1)">−</button><span class="num">${s.asp[k]}</span><button onclick="adj('${k}',1)">+</button>
+      <small>Ethynia ${racial(s,k)>=0?'+':''}${racial(s,k)}</small><span class="num" title="Total">= ${total(s,k)}</span>
+      <small>${Math.floor(s.asp[k]/4)?'★ '+Math.floor(s.asp[k]/4)+' Qualidade(s)':''}</small></div>`).join('')}
+    <p class="msg">Humanos ganham +1 em dois Aspectos à escolha: some manualmente nos pontos.</p></div>
+  <div class="card"><h2>Status</h2><div class="grid">
+    ${[['PV',pv,'pvA'],['Essência',E.pe,'peA'],['Fôlego',E.fol,'folA']].map(([n,v,k])=>`<div class="stat"><label>${n}</label>
+      <div class="v">${v}</div><label>Atual</label><input type="number" data-k="${k}" value="${s[k]===''?v:s[k]}"></div>`).join('')}
+    <div class="stat"><label>Velocidade</label><div class="v">${E.vel} m</div></div>
+    <div class="stat"><label>Serpes</label><input type="number" data-k="serpes" value="${s.serpes}"></div></div></div>
+  <div class="card"><h2>Detalhes</h2>
+    <label>História</label><textarea data-k="hist">${esc(s.hist)}</textarea>
+    <label>Habilidades e Qualidades</label><textarea data-k="skills">${esc(s.skills)}</textarea>
+    <label>Itens</label><textarea data-k="items">${esc(s.items)}</textarea>
+    <label>Anotações</label><textarea data-k="notes">${esc(s.notes)}</textarea></div>`;
+  app.querySelectorAll('[data-k]').forEach(el=>el.oninput=el.onchange=()=>{
+    const k=el.dataset.k;s[k]=el.type=='number'?(el.value===''?'':+el.value):el.value;queueSave();if(k=='ethynia')viewSheet()});
+  renderLink();
+}
+function adj(k,d){const v=sheet.asp[k]+d;if(v<1||v>MAXA)return;sheet.asp[k]=v;queueSave();viewSheet()}
+function newSheet(){sheet=blank();sheetId=null;history.replaceState(null,'','/#ficha');viewSheet()}
+function openCode(){const c=prompt('Código da ficha (8 caracteres):');if(c)location.href='?f='+c.trim().toLowerCase()+'#ficha'}
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function viewDocs(list,title){
+  app.innerHTML=`<div class="card"><h2>${title}</h2>${list.map(([t,b])=>`<details open><summary>${t}</summary><p>${b}</p></details>`).join('')}</div>`;
+}
+
+function viewMaster(){
+  app.innerHTML=`<div class="card"><h2>Painel do Mestre</h2><div class="bar"><input id="mk" type="password" placeholder="Senha do mestre" style="max-width:260px">
+    <button class="btn" onclick="loadMaster()">Entrar</button></div><div id="ml"></div></div>`;
+  const k=sessionStorage.getItem('mk');if(k){$('#mk').value=k;loadMaster()}
+}
+async function loadMaster(){
+  const k=$('#mk').value;
+  try{
+    const list=await api('/api/master',{headers:{'x-master-key':k}});sessionStorage.setItem('mk',k);
+    $('#ml').innerHTML=list.length?`<div class="grid">${list.map(f=>`<div class="card"><b>${esc(f.name)||'(sem nome)'}</b><br>
+      <small>${esc(f.player)||'-'} · ${f.ethynia} · ${f.arq}</small><br><a href="?f=${f.id}#ficha">Abrir ficha ${f.id}</a></div>`).join('')}</div>`:'<p class="msg">Nenhuma ficha ainda.</p>';
+  }catch(e){$('#ml').innerHTML=`<p class="err">${e.message}</p>`}
+}
+
+/* ===== ROTEADOR ===== */
+const TABS={ficha:['Ficha',viewSheet],regras:['Livro de Regras',()=>viewDocs(RULES,'Livro de Regras')],lore:['Lore',()=>viewDocs(LORE,'Lore de Éthyan')],mestre:['Mestre',viewMaster]};
+async function route(){
+  const t=(location.hash.slice(1)||'ficha');const tab=TABS[t]?t:'ficha';
+  $('#nav').innerHTML=Object.entries(TABS).map(([k,[n]])=>`<button class="${k==tab?'on':''}" onclick="location.hash='${k}'">${n}</button>`).join('');
+  if(tab=='ficha'&&!sheet){
+    const id=new URLSearchParams(location.search).get('f');
+    if(id){try{sheet=Object.assign(blank(),await api('/api/sheet?id='+id));sheetId=id}catch(e){alert(e.message);sheet=blank()}}
+    else sheet=blank();
+  }
+  TABS[tab][1]();
+}
+addEventListener('hashchange',route);route();
+</script>
+</body>
+</html>
